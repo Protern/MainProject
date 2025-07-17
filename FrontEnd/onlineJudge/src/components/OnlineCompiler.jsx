@@ -9,9 +9,9 @@ import "./OnlineCompiler.css";
 
 const codeTemplates = {
   cpp: `#include <iostream>
-
+        using namespace std;
 int main() {
-    std::cout << "Hello World!";
+    cout << "Hello World!";
     return 0;
 }
 `,
@@ -38,6 +38,8 @@ const OnlineCompiler = () => {
   const [output, setOutput] = useState("");
   const [language, setLanguage] = useState("cpp");
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
 
   const navigate = useNavigate();
 
@@ -46,13 +48,31 @@ const OnlineCompiler = () => {
   }, [language]);
 
   const handleRunCode = async () => {
-    try {
-      const result = await runCode(language, code, input);
-      setOutput(result.output || "No output");
-    } catch (error) {
-      setOutput("Error executing code: " + (error.message || "Unknown error"));
+   
+  setOutput("");          // clear previous output
+  setLoading(true);       // show spinner or disable button if you have one
+  try {
+    
+    
+    const result = await runCode({ language, code, input});
+        console.log("input frontend sends :",JSON.stringify(input));
+        
+
+
+    if (result.output) {
+      setOutput(result.output);
+    } else if (result.error) {
+      setOutput("Error: " + result.error);
+    } else {
+      setOutput("No output from code execution.");
     }
-  };
+  } catch (err) {
+    setOutput("Error executing code: " + (err.message || "Unknown error"));
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const languageMode = () => {
     switch (language) {

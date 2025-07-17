@@ -17,6 +17,12 @@ import executePy from "./Compiler/executePy.js";
 import executeC from "./Compiler/executeC.js";
 import executeJava from "./Compiler/executeJava.js";
 import generateInputFile from "./Compiler/generateInputFile.js";
+import { authMiddleware } from "./middleware/auth.js";
+import Problem from "./models/Problem.js";      
+
+import UserCode  from "./models/userCode.js";
+
+
 
 const app = express();
 const port = 3000;
@@ -266,39 +272,124 @@ app.post("/logout", (req, res) => {
   }
 });
 
-app.post("/run", async (req, res) => {
-  const { language = "cpp", code, input } = req.body;
 
-  if (code === undefined) {
-    return res.status(404).json({ success: false, error: "Empty code!" });
+////////////////
+app.post("/run", authMiddleware, async (req, res) => {
+  const { language = "cpp", code, input, problemId } = req.body;
+
+
+  if (!code) {
+    return res.status(400).json({ success: false, error: "Empty code!" });
   }
 
   try {
     const filePath = await generateFile(language, code);
-    const inputPath = input ? await generateInputFile(input) : null;
+    const problem = problemId ? await Problem.findById(problemId) : null;
 
-    let output;
-    switch (language) {
-      case "c":
-        output = await executeC(filePath, inputPath);
+    // const testCases = input
+    //   ? [{ input, output: null }]  // Run Code mode: single test input, no output check
+    //   : problem?.test_cases || []; // Submit mode: run all test cases with expected outputs
+
+
+    const testCases = (typeof input === 'string')
+  ? [{ input, output: null }]
+  : problem?.test_cases || [];
+
+    let finalOutput = ""; // For Run Code output return
+    let verdict = "Accepted";
+    let totalTime = 0;
+    let stderr = "";
+  // console.log('Backend /run input:', JSON.stringify(req.body.input));
+
+    for (const test of testCases) {
+      const inputPath = await generateInputFile(test.input);
+      const start = Date.now();
+
+      try {
+        let output;
+        switch (language) {
+          case "c":
+            output = await executeC(filePath, inputPath);
+            break;
+          case "cpp":
+            output = await executeCpp(filePath, inputPath);
+            break;
+          case "py":
+            output = await executePy(filePath, inputPath);
+            break;
+          case "java":
+            output = await executeJava(filePath, inputPath);
+            break;
+          default:
+            return res.status(400).json({
+              success: false,
+              error: "Invalid language!"
+            });
+        }
+
+        const end = Date.now();
+        totalTime += end - start;
+
+        // Output comparison during Submit (test.output !== null)
+        if (test.output !== null && test.output.trim() !== output.trim()) {
+          verdict = "Wrong Answer";
+          finalOutput = output;
+          break;
+        }
+
+        // During Run Code mode, save output for frontend display
+        // if (input) {
+        //   finalOutput = output;
+        // }
+        if (typeof input === 'string') {
+  finalOutput = output;
+}
+
+
+      } catch (err) {
+        verdict = "Runtime Error";
+
+        if (err.stderr?.includes("Time Limit Exceeded")) {
+          verdict = "TLE";
+        } else if (err.stderr?.includes("error")) {
+          verdict = "Compilation Error";
+        }
+
+        stderr = err.stderr || err.message;
         break;
-      case "py":
-        output = await executePy(filePath, inputPath);
-        break;
-      case "cpp":
-        output = await executeCpp(filePath, inputPath);
-        break;
-      case "java":
-        output = await executeJava(filePath, inputPath);
-        break;
-      default:
-        return res
-          .status(400)
-          .json({ success: false, error: "Invalid language!" });
+      }
     }
 
-    res.json({ filePath, inputPath, output });
+    // Save submission only if submitting (problemId present) and user authenticated
+    let submission = null;
+    if (problemId && req.user) {
+      submission = new UserCode({
+        userId: req.user._id,
+        problemId,
+        language,
+        code,
+        verdict,
+        execTimeMs: totalTime,
+        stderr,
+        status: verdict === "Accepted" ? "solved" : "attempted",
+      });
+      await submission.save();
+    }
+
+    // Respond with verdict and output (output is mainly for Run Code mode)
+    return res.json({
+      success: true,
+      verdict,
+      output: finalOutput,
+      execTimeMs: totalTime,
+      stderr,
+      submissionId: submission?._id || null,
+    });
   } catch (error) {
-    res.status(500).json({ error: error });
+    console.error("Run error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal Server Error",
+    });
   }
 });

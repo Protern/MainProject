@@ -50,6 +50,8 @@ const CodeEditor = () => {
   const [submissions, setSubmissions] = useState([]);
   const [status, setStatus] = useState("unsolved");
   const [selectedCode, setSelectedCode] = useState("");
+  const [verdict, setVerdict] = useState("");
+
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -119,64 +121,59 @@ const CodeEditor = () => {
   };
 
   const handleRunCode = async () => {
-    if (testCases.length > 0) {
-      const results = [];
-      let allPassed = true;
-      for (let i = 0; i < testCases.length; i++) {
-        const selectedTestCase = testCases[i];
-        try {
-          const result = await runCode(language, code, selectedTestCase.input);
-          const isPassed =
-            result.output.trim() === selectedTestCase.output.trim();
-          if (!isPassed) {
-            allPassed = false;
-          }
-          results.push({
-            input: selectedTestCase.input,
-            expected: selectedTestCase.output,
-            output: result.output,
-            passed: isPassed,
-          });
-        } catch (error) {
-          results.push({
-            input: selectedTestCase.input,
-            expected: selectedTestCase.output,
-            output:
-              "Error executing code: " + (error.message || "Unknown error"),
-            passed: false,
-          });
-          allPassed = false;
-        }
-      }
-      setTestResults(results);
-      setOutput(
-        results
-          .map(
-            (res, idx) =>
-              `Test Case ${idx + 1}: ${res.passed ? "Passed" : "Failed"}`
-          )
-          .join("\n")
-      );
+  if (!testCases.length) {
+    setOutput("No test cases available");
+    return;
+  }
 
-      let newStatus = "unsolved";
-      if (allPassed) {
-        newStatus = "solved";
-      } else if (results.some((result) => result.passed)) {
-        newStatus = "attempted";
-      }
-      setStatus(newStatus);
+  const token = localStorage.getItem("token");  // ← get JWT
+  const results = [];
+  let allPassed = true;
 
-      if (userId && id && language) {
-        try {
-          await saveUserCode(id, userId, code, language, newStatus);
-        } catch (error) {
-          console.error("Failed to save user code:", error);
-        }
-      }
-    } else {
-      setOutput("No test cases available");
+  for (const tc of testCases) {
+    try {
+     
+      const r = await runCode({
+        language,
+        code,
+        input: tc.input,   
+        token :localStorage.getItem("token")            
+      });
+
+      const passed = r.output.trim() === tc.output.trim();
+      if (!passed) allPassed = false;
+
+      results.push({ ...tc, output: r.output, passed });
+    } catch (err) {
+      allPassed = false;
+      results.push({
+        ...tc,
+        output: err.stderr || err.error || "Error",
+        passed: false
+      });
     }
-  };
+  }
+
+  setTestResults(results);
+  setOutput(
+    results
+      .map((r, i) => `Test Case ${i + 1}: ${r.passed ? "Passed" : "Failed"}`)
+      .join("\n")
+  );
+
+  const newStatus = allPassed
+    ? "solved"
+    : results.some((r) => r.passed)
+    ? "attempted"
+    : "unsolved";
+  setStatus(newStatus);
+
+  if (userId && id && language) {
+    await saveUserCode(id, userId, code, language, newStatus);
+  }
+
+};
+
 
   const languageMode = () => {
     switch (language) {
@@ -196,6 +193,25 @@ const CodeEditor = () => {
     setShowSubmissions(false);
     setSelectedCode("");
   };
+const handleSubmit = async () => {
+  try {
+    const data = await runCode({
+      language,
+      code,
+      problemId: id,
+      token: localStorage.getItem("token")
+    });
+
+    setVerdict(data.verdict);
+    setOutput(`Verdict: ${data.verdict}\nTime: ${data.execTimeMs} ms`);
+    setStatus(data.verdict === "Accepted" ? "solved" : "attempted");
+
+  } catch (err) {
+    setOutput(err?.response?.data?.error || err.stderr || err.message || "Submission failed");
+  }
+};
+
+
 
   return (
     <div className="flex flex-col h-full p-4 bg-gray-900 text-white">
@@ -271,34 +287,52 @@ const CodeEditor = () => {
         Run Code
       </button>
       <button
+  onClick={handleSubmit}
+  className="p-2 bg-purple-600 text-white rounded mt-2 hover:bg-purple-700"
+>
+  Submit
+</button>
+
+      <button
         onClick={handleViewSubmissions}
         className="p-2 bg-green-600 text-white rounded mt-2 hover:bg-green-700"
       >
         View All Submissions
       </button>
-      <textarea
-        value={output}
-        readOnly
-        placeholder="Output"
-        className="my-2 p-2 border rounded bg-gray-800 text-white"
-      />
-      {status && <div className="mt-2">Status: {status}</div>}
-      {testResults.length > 0 && (
-        <div className="mt-4">
-          {testResults.map((result, index) => (
-            <div
-              key={index}
-              className={`p-2 rounded mb-2 ${
-                result.passed ? "bg-green-600" : "bg-red-600"
-              }`}
-            >
-              <p>
-                Test Case {index + 1}: {result.passed ? "Passed" : "Failed"}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+     <textarea
+  value={output}
+  readOnly
+  placeholder="Output"
+  className="my-2 p-2 border rounded bg-gray-800 text-white"
+/>
+
+{status && <div className="mt-2">Status: {status}</div>}
+
+{/* ▶▶ add this */}
+{verdict && (
+  <div className="mt-1">
+    <span className="font-semibold">Server&nbsp;Verdict:</span> {verdict}
+  </div>
+)}
+{/* ◀◀ */}
+
+{testResults.length > 0 && (
+  <div className="mt-4">
+    {testResults.map((result, index) => (
+      <div
+        key={index}
+        className={`p-2 rounded mb-2 ${
+          result.passed ? "bg-green-600" : "bg-red-600"
+        }`}
+      >
+        <p>
+          Test Case {index + 1}: {result.passed ? "Passed" : "Failed"}
+        </p>
+      </div>
+    ))}
+  </div>
+)}
+
       {showSubmissions && (
         <div className="modal">
           <div className="modal-content">
