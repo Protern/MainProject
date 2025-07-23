@@ -78,6 +78,7 @@ function ProblemDetail() {
         </div>
       </div>
     </div>
+   
   );
 }
 

@@ -21,6 +21,8 @@ import { authMiddleware } from "./middleware/auth.js";
 import Problem from "./models/Problem.js";      
 
 import UserCode  from "./models/userCode.js";
+import aiRoutes from './routes/AiReview.js';
+
 
 
 
@@ -45,6 +47,8 @@ dbConnect();
 app.listen(port, () => {
   console.log(`Server is running on port ${port}.`);
 });
+app.use("/ai", aiRoutes);
+
 
 app.get("/", (req, res) => {
   res.send("Hello World");
@@ -346,7 +350,8 @@ app.post("/run", authMiddleware, async (req, res) => {
 }
 
 
-      } catch (err) {
+      }
+       catch (err) {
         verdict = "Runtime Error";
 
         if (err.stderr?.includes("Time Limit Exceeded")) {
@@ -358,6 +363,7 @@ app.post("/run", authMiddleware, async (req, res) => {
         stderr = err.stderr || err.message;
         break;
       }
+  
     }
 
     // Save submission only if submitting (problemId present) and user authenticated

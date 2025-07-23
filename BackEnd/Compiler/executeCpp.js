@@ -63,40 +63,66 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 const outputPath = path.join(__dirname, "outputs");
-if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
+if (!fs.existsSync(outputPath)) {
+  fs.mkdirSync(outputPath, { recursive: true });
+}
 
-const compileTimeout = 30000;   // 30 s for g++ compile
-const runTimeout     = 3000;    // 3 s for user program
+const compileTimeout = 30000; // Max compile time: 30 seconds
+const runTimeout = 3000;      // Max runtime for user program: 3 seconds
 
 export default function executeCpp(filepath, inputPath = null) {
-  const jobId   = path.basename(filepath).split(".")[0];
+  const jobId = path.basename(filepath).split(".")[0];
   const outPath = path.join(outputPath, jobId);
 
-  /* ---------- STEP 1: COMPILE ---------- */
   const compileCmd = `g++ "${filepath}" -o "${outPath}"`;
 
   return new Promise((resolve, reject) => {
+    // Step 1: Compile
     exec(compileCmd, { timeout: compileTimeout }, (compErr, _, compStderr) => {
       if (compErr) {
-        return reject({ error: compErr, stderr: compStderr || "Compilation Error" });
+        return reject({
+          error: compErr,
+          stderr: compStderr || "Compilation Error",
+          verdict: "Compilation Error"
+        });
       }
 
-      /* ---------- STEP 2: RUN ---------- */
+      // Step 2: Run the compiled binary with redirected input
       let runCmd = `"${outPath}"`;
       if (inputPath) runCmd += ` < "${inputPath}"`;
 
       exec(runCmd, { timeout: runTimeout }, (runErr, stdout, runStderr) => {
+        // Handle TLE explicitly
         if (runErr) {
-          if (runErr.killed) {
-            return reject({ error: runErr, stderr: "Time Limit Exceeded" });
+          if (runErr.killed || runErr.signal === "SIGTERM") {
+            return reject({
+              error: runErr,
+              stderr: "Time Limit Exceeded",
+              verdict: "TLE"
+            });
           }
-          return reject({ error: runErr, stderr: runStderr });
+
+          // Runtime crash (segfault, division by zero, etc.)
+          return reject({
+            error: runErr,
+            stderr: runStderr || runErr.message || "Runtime Error",
+            verdict: "Runtime Error"
+          });
         }
-        if (runStderr) return reject({ stderr: runStderr });
-        resolve(stdout);
+
+        // Still stderr (warnings, etc.) but successful exit → optional check
+        if (runStderr && runStderr.trim()) {
+          return reject({
+            stderr: runStderr.trim(),
+            verdict: "Runtime Error"
+          });
+        }
+
+        // All good
+        resolve(stdout.trim());
       });
     });
   });

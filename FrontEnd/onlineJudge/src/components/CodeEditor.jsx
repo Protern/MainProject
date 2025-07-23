@@ -12,6 +12,10 @@ import {
   getAllSubmissions,
 } from "../services/codeService";
 import { getUserProfile } from "../services/userService";
+// AI Review Code Starts
+import axios from "axios";
+import ReactMarkdown from "react-markdown"; // ← install first with `npm install react-markdown`
+
 
 const codeTemplates = {
   cpp: `#include <iostream>
@@ -51,8 +55,8 @@ const CodeEditor = () => {
   const [status, setStatus] = useState("unsolved");
   const [selectedCode, setSelectedCode] = useState("");
   const [verdict, setVerdict] = useState("");
-
-
+  const [review, setReview] = useState("");
+const [reviewLoading, setReviewLoading] = useState(false);
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -208,6 +212,30 @@ const handleSubmit = async () => {
 
   } catch (err) {
     setOutput(err?.response?.data?.error || err.stderr || err.message || "Submission failed");
+  }
+};
+
+const handleAIReview = async () => {
+  setReviewLoading(true);
+  setReview("");
+
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.post(
+      "http://localhost:3000/ai/review",
+      { code, language },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    setReview(res.data.feedback || "No feedback returned from AI.");
+  } catch (err) {
+    console.error("AI Review Error:", err.message);
+    setReview("⚠️ Failed to get AI review. Please try again.");
+  } finally {
+    setReviewLoading(false);
   }
 };
 
@@ -383,6 +411,25 @@ const handleSubmit = async () => {
           </div>
         </div>
       )}
+      {/* --- AI Review Section --- */}
+<div className="mt-4">
+  <button
+    onClick={handleAIReview}
+    disabled={reviewLoading || code.trim() === ""}
+    className="p-2 bg-yellow-500 text-black font-semibold rounded hover:bg-yellow-600"
+  >
+    {reviewLoading ? "Reviewing..." : "Get AI Code Review"}
+  </button>
+
+  {review && (
+    <div className="mt-4 p-4 border rounded bg-gray-800 text-white">
+      {/* Use react-markdown for clean formatting */}
+      <ReactMarkdown>{review}</ReactMarkdown>
+    </div>
+  )}
+</div>
+
+      
     </div>
   );
 };

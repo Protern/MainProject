@@ -54,7 +54,7 @@ const userCodeSchema = new mongoose.Schema(
     /* ---------- judge result ---------- */
     verdict: {
       type: String,
-      enum: ["", "Accepted", "Wrong Answer", "TLE", "RE", "CE"],
+      enum: ["", "Accepted", "Wrong Answer", "TLE", "RE", "CE","Runtime Error","Compilation Error"],
       default: "",
     },
     execTimeMs: Number,          // runtime of this attempt (optional)
