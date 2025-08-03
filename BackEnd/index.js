@@ -22,12 +22,8 @@ import Problem from "./models/Problem.js";
 
 import UserCode  from "./models/userCode.js";
 import aiRoutes from './routes/AiReview.js';
-
-
-
-
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 5001;
 
 app.use(
   cors({

@@ -1,7 +1,8 @@
 // src/services/authService.js
 import axios from "axios";
 
-const API_URL = "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+console.log("Using backend API URL:", API_URL);
 
 export const login = async (email, password) => {
   try {
