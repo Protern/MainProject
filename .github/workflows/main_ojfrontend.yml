@@ -53,10 +53,12 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FEB07AFC5ED14C338829C5490025D2BF }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_BBB09C6C7F1946F0A6CA3ED6A6C40111 }}
         
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'OJfrontend'
-          slot-name: 'Production'
-          package: './dist'  # Deploy from the extracted 'dist' folder
+     - name: 'Deploy to Azure Web App'
+  id: deploy-to-webapp
+  uses: azure/webapps-deploy@v3
+  with:
+    app-name: 'OJfrontend'
+    slot-name: 'Production'
+    package: 'node-app/dist'    # <- Change path here
+
+
