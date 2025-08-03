@@ -46,14 +46,25 @@ jobs:
         with:
           name: node-app
 
-      - name: List files in current directory
+      - name: List files in current directory (after download)
         run: ls -la
 
-      - name: List node-app folder if exists
+      - name: List 'node-app' folder if exists
         run: ls -la node-app || echo 'node-app folder does not exist'
 
-      - name: List dist folder if exists
+      - name: List 'dist' folder if exists
         run: ls -la dist || echo 'dist folder does not exist'
+
+      - name: Prepare files for deployment
+        run: |
+          # If 'node-app' folder exists and contains 'index.html', move files to root
+          if [ -d "node-app" ] && [ -f "node-app/index.html" ]; then
+            echo "Moving files from node-app/ to workspace root..."
+            cp -r node-app/* .
+          fi
+
+      - name: Verify files at root before deploy
+        run: ls -la
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -68,9 +79,6 @@ jobs:
         with:
           app-name: 'OJfrontend'
           slot-name: 'Production'
-          package: '.'
-
-
-
+          package: '.'   # Deploy from current directory where index.html now sits
 
 
