@@ -46,6 +46,15 @@ jobs:
         with:
           name: node-app
 
+      - name: List files in current directory
+        run: ls -la
+
+      - name: List node-app folder if exists
+        run: ls -la node-app || echo 'node-app folder does not exist'
+
+      - name: List dist folder if exists
+        run: ls -la dist || echo 'dist folder does not exist'
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
