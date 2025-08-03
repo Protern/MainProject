@@ -68,6 +68,7 @@ jobs:
         with:
           app-name: 'OJfrontend'
           slot-name: 'Production'
-          package: 'node-app/dist'
+          package: 'dist'
+
 
 
