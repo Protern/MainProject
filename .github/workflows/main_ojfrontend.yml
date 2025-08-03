@@ -31,7 +31,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: FrontEnd/onlineJudge/dist   # Updated path from 'build' to 'dist'
+          path: FrontEnd/onlineJudge/dist
 
   deploy:
     runs-on: ubuntu-latest
@@ -52,13 +52,13 @@ jobs:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CDB799B57F9E4FE99BA3EB284B75CE5E }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FEB07AFC5ED14C338829C5490025D2BF }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_BBB09C6C7F1946F0A6CA3ED6A6C40111 }}
-        
-     - name: 'Deploy to Azure Web App'
-  id: deploy-to-webapp
-  uses: azure/webapps-deploy@v3
-  with:
-    app-name: 'OJfrontend'
-    slot-name: 'Production'
-    package: 'node-app/dist'    # <- Change path here
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'OJfrontend'
+          slot-name: 'Production'
+          package: 'node-app/dist'
 
 
